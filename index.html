@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Writer Core V30</title>
+    <title>Writer Core V26 - Realtime</title>
     <link rel="stylesheet" href="index.css">
     <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -13,35 +13,39 @@
 <body>
 
 <div class="engine-room">
-    <input type="text" id="chapterTitle">
-    <textarea id="editor"></textarea>
-    <button id="btnMerge">EXECUTE</button>
-    <textarea id="checklistInput"></textarea>
-    <button id="btnImportChecklist">IMPORT</button>
+    <input type="text" id="chapterTitle"><textarea id="editor"></textarea>
 </div>
 
 <div class="app-container">
     <header class="glass-header">
         <div class="folder-group">
-            <select id="folderSelect" class="modern-select"></select>
-            <button id="btnEditFolder" class="icon-btn" title="Sửa tên">✏️</button>
-            <button id="btnNewFolder" class="icon-btn" title="Thêm">➕</button>
-            <button id="btnDeleteFolder" class="icon-btn" title="Xóa">🗑️</button>
+            <div class="folder-wrapper">
+                <span class="folder-icon">📂</span>
+                <select id="folderSelect" class="modern-select"></select>
+            </div>
+            <button id="btnNewFolder" class="icon-btn" title="Thêm">+</button>
+            <button id="btnDeleteFolder" class="icon-btn danger" title="Xóa">-</button>
         </div>
+
         <div class="search-wrapper">
-            <div class="search-box">
+            <div class="search-input-box">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="Tìm kiếm file, nội dung...">
+                <input type="text" id="searchInput" placeholder="Tìm kiếm chương, nội dung log...">
             </div>
         </div>
+
         <div class="right-control-group">
-            <nav class="nav-tabs" style="display:flex; gap:4px">
+            <div class="nav-tabs">
                 <button id="btnViewFiles" class="tab-btn active">Files</button>
+                <div class="divider-vertical"></div>
                 <button id="btnViewChecklist" class="tab-btn">Danh sách</button>
+                <div class="divider-vertical"></div>
                 <button id="btnViewHistory" class="tab-btn">Thông báo</button>
-            </nav>
-            <div class="divider"></div>
-            <label class="smart-toggle" title="Tự động gộp nhóm 1.x">
+            </div>
+        </div>
+        
+        <div class="smart-toggle">
+             <label class="smart-toggle">
                 <input type="checkbox" id="autoGroup" checked>
                 <div class="toggle-track"><div class="toggle-thumb"></div></div>
                 <span class="toggle-label">Gộp 1.x</span>
@@ -50,76 +54,85 @@
     </header>
 
     <main class="main-stage">
+        
         <div id="viewManager" class="view-panel active">
-            <div class="toolbar-card">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600">
-                    <input type="checkbox" id="selectAll" style="transform:scale(1.2)"> Chọn tất cả (<span id="fileCount">0</span>)
+            <div class="control-bar">
+                <label class="custom-chk">
+                    <input type="checkbox" id="selectAll">
+                    <div class="checkmark"></div>
+                    <span class="label-text">Chọn tất cả (<span id="fileCount">0</span>)</span>
                 </label>
-                <div style="display:flex; gap:10px">
-                    <button id="btnDownloadDirect" class="btn-pill">⬇ Tải Lẻ</button>
-                    <button id="btnDownloadBatch" class="btn-pill primary">📦 Tải ZIP</button>
-                    <button id="btnDeleteBatch" class="btn-pill danger">🗑 Xóa</button>
+                <div class="bar-right">
+                    <button id="btnDownloadDirect" class="action-pill">⬇ Tải Lẻ</button>
+                    <button id="btnDownloadBatch" class="action-pill primary">📦 Tải ZIP</button>
+                    <button id="btnDeleteBatch" class="action-pill danger">🗑 Xóa</button>
                 </div>
             </div>
-            <div id="fileGrid" class="file-grid"></div>
+            <div id="fileGrid" class="grid-container"></div>
         </div>
 
         <div id="viewChecklist" class="view-panel">
-            <div class="toolbar-card">
-                <div class="progress-container">
-                    <span class="prog-label">Tiến độ:</span>
+            <div class="panel-header">
+                <div class="progress-wrapper" style="flex: 1; margin-right: 15px;">
+                    <span class="prog-title">Tiến độ:</span>
                     <span id="progCount" class="prog-val">0/0</span>
-                    <div class="prog-track"><div id="progBar" class="prog-fill"></div></div>
+                    <div style="flex: 1; padding: 0 10px;">
+                        <div class="prog-track"><div id="progBar" class="prog-fill"></div></div>
+                    </div>
                 </div>
-                <button id="btnClearChecklist" class="btn-pill danger">Xóa danh sách</button>
+                <button id="btnClearChecklist" class="btn-rounded-danger">Xóa danh sách</button>
             </div>
-            <div class="table-wrapper">
-                <table class="modern-table">
-                    <thead><tr><th width="150">Trạng thái</th><th>Tên Chương</th><th width="100" style="text-align:right">STT</th></tr></thead>
-                    <tbody id="checklistBody"></tbody>
-                </table>
+            
+            <div class="table-container">
+                <div class="tbl-head">
+                    <div class="col-status">Trạng thái</div>
+                    <div class="col-name">Tên Chương</div>
+                    <div class="col-idx">Số</div>
+                </div>
+                <div id="checklistBody" class="tbl-body"></div>
             </div>
         </div>
 
         <div id="viewHistory" class="view-panel">
-            <div class="toolbar-card">
-                <div class="filter-tabs">
-                    <button class="filter-chip active" data-filter="all">Tất cả</button>
-                    <button class="filter-chip" data-filter="success">Quét nội dung</button>
-                    <button class="filter-chip" data-filter="error">Quét trùng</button>
+            <div class="panel-header">
+                <div class="filter-group">
+                    <button class="filter-btn active" data-filter="all">Tất cả</button>
+                    <button class="filter-btn" data-filter="scan">Quét trùng</button>
+                    <button class="filter-btn" data-filter="merge">Quét nội dung</button>
                 </div>
-                <button id="btnClearHistory" class="btn-pill danger">Xóa lịch sử</button>
+                <button id="btnClearHistory" class="btn-rounded-danger">Xóa lịch sử</button>
             </div>
-            <div class="table-wrapper">
-                <table class="modern-table">
-                    <thead><tr><th width="140">Thời gian</th><th width="140">Loại</th><th>Nội dung chi tiết</th></tr></thead>
-                    <tbody id="historyTableBody"></tbody>
-                </table>
+
+            <div class="table-container">
+                <div class="tbl-head">
+                    <div class="col-time">Thời gian</div>
+                    <div class="col-type">Loại</div>
+                    <div class="col-msg">Chi tiết nội dung</div>
+                </div>
+                <div id="historyTableBody" class="tbl-body">
+                    </div>
             </div>
         </div>
+
     </main>
 </div>
 
-<div id="previewModal" class="modal-overlay">
+<div id="previewModal" class="modal-backdrop">
     <div class="modal-content">
-        <div class="glass-header" style="justify-content:space-between">
-            <h3 id="previewTitle" style="font-size:16px;font-weight:700">Preview</h3>
-            <div style="display:flex;gap:10px">
-                <button onclick="prevChapter()" class="icon-btn">❮</button>
-                <button onclick="nextChapter()" class="icon-btn">❯</button>
-                <button onclick="closePreview()" class="icon-btn danger">✕</button>
-            </div>
+        <div class="modal-top">
+            <h3 id="previewTitle">Preview</h3>
+            <button onclick="closePreview()" class="icon-btn danger">✕</button>
         </div>
-        <div style="flex:1;overflow-y:auto">
-            <div class="paper">
-                <h1 id="previewDocHeader" style="font-family:'Calibri';font-size:24px;margin-bottom:30px"></h1>
-                <div id="previewBody" style="font-family:'Calibri';font-size:16px;line-height:1.5;text-align:justify"></div>
+        <div class="modal-scroll">
+            <div class="doc-paper">
+                <h1 id="previewDocHeader"></h1>
+                <div id="previewBody"></div>
             </div>
         </div>
     </div>
 </div>
 
-<div id="toast" class="toast">Notification</div>
+<div id="toast" class="toast">Thông báo</div>
 <script src="index.js"></script>
 </body>
 </html>
