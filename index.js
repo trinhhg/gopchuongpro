@@ -337,7 +337,7 @@ function generateDocxFromSegments(mainHeader, segments) {
             text: mainHeader, 
             font: "Calibri", 
             size: 32, 
-            bold: fasle,
+            bold: false,
             color: "000000"
         })], 
         alignment: AlignmentType.LEFT, // Căn trái theo yêu cầu
