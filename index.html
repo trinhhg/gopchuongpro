@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writer Core V26 - AntiSleep</title>
+    <link rel="stylesheet" href="index.css">
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="engine-room">
+    <input type="text" id="chapterTitle" value="Chương 1">
+    <textarea id="editor"></textarea>
+    <button id="btnMerge">Gộp Ẩn</button>
+    
+    <textarea id="checklistInput"></textarea>
+    <button id="btnImportChecklist">Nhập List</button>
+</div>
+
+<div class="dashboard">
+    <header class="top-bar">
+        <div class="folder-controls">
+            <select id="folderSelect" class="folder-select"></select>
+            <button id="btnNewFolder" class="btn-icon" title="Thêm thư mục">+</button>
+            <button id="btnDeleteFolder" class="btn-icon danger" title="Xóa thư mục">-</button>
+        </div>
+
+        <div class="search-box">
+            <span class="search-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm...">
+        </div>
+
+        <div class="nav-middle">
+            <button id="btnViewFiles" class="nav-pill active">📂 Files</button>
+            <button id="btnViewChecklist" class="nav-pill">📋 Danh sách</button>
+            <button id="btnViewHistory" class="nav-pill">🔔 Thông báo</button>
+        </div>
+
+        <div class="settings">
+            <label class="toggle-switch">
+                <input type="checkbox" id="autoGroup" checked>
+                <span class="slider"></span>
+                <span class="label">Gộp 1.x</span>
+            </label>
+        </div>
+    </header>
+
+    <main class="content-wrapper">
+        
+        <div id="viewManager" class="view-section active">
+            <div class="toolbar">
+                <div class="left-tools">
+                    <label class="chk-all">
+                        <input type="checkbox" id="selectAll"> Chọn tất cả (<span id="fileCount">0</span> file)
+                    </label>
+                </div>
+                <div class="right-tools">
+                    <button id="btnDownloadDirect" class="btn-tool secondary">⬇ Tải Lẻ</button>
+                    <button id="btnDownloadBatch" class="btn-tool primary">📦 Tải ZIP</button>
+                    <button id="btnDeleteBatch" class="btn-tool danger">🗑 Xóa</button>
+                </div>
+            </div>
+            <div id="fileGrid" class="file-grid"></div>
+        </div>
+
+        <div id="viewChecklist" class="view-section">
+            <div class="checklist-toolbar">
+                <div class="progress-info">
+                    <span class="prog-label">Tiến độ:</span>
+                    <span id="progCount" class="prog-number">0/0</span>
+                    <div class="progress-bar-bg"><div id="progBar" class="progress-bar-fill"></div></div>
+                </div>
+                <button id="btnClearChecklist" class="btn-tool danger">Xóa danh sách</button>
+            </div>
+            
+            <div class="checklist-container">
+                <div class="checklist-header-row">
+                    <div class="col-status">Trạng thái</div>
+                    <div class="col-title">Tên Chương (Từ Web Truyện)</div>
+                    <div class="col-num">Số</div>
+                </div>
+                <div id="checklistBody" class="checklist-body">
+                    <div class="empty-state">Chưa có dữ liệu. Hãy ấn F2 ở web truyện để Quét.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="viewHistory" class="view-section">
+            <div class="history-toolbar">
+                <div class="history-left">
+                    <h3>Nhật ký & Check Trùng</h3>
+                    <select id="historyFilter" class="filter-select">
+                        <option value="all">Tất cả</option>
+                        <option value="error">❌ Lỗi / Trùng</option>
+                        <option value="success">✅ Thành công</option>
+                    </select>
+                </div>
+                <button id="btnClearHistory" class="btn-tool danger">Xóa</button>
+            </div>
+            <div class="history-table-wrapper">
+                <table class="history-table">
+                    <thead><tr><th width="100">Giờ</th><th width="120">Loại</th><th>Chi tiết</th></tr></thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<div id="previewModal" class="modal-overlay">
+    <div class="modal-window">
+        <div class="modal-header">
+            <h3 id="previewTitle">Xem trước</h3>
+            <div class="modal-nav">
+                <button onclick="prevChapter()" class="nav-btn">❮</button>
+                <span id="previewCounter">--/--</span>
+                <button onclick="nextChapter()" class="nav-btn">❯</button>
+            </div>
+            <button onclick="closePreview()" class="btn-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="paper">
+                <h1 id="previewDocHeader">Header</h1>
+                <div id="previewBody">Content...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast">Thông báo</div>
+<script src="index.js"></script>
+</body>
+</html>
