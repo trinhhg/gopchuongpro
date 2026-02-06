@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Writer Core V26 - Realtime</title>
+    <title>Writer Core V26.1</title>
     <link rel="stylesheet" href="index.css">
     <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -24,13 +24,14 @@
                 <select id="folderSelect" class="modern-select"></select>
             </div>
             <button id="btnNewFolder" class="icon-btn" title="Thêm">+</button>
+            <button id="btnRenameFolder" class="icon-btn" title="Đổi tên">✎</button>
             <button id="btnDeleteFolder" class="icon-btn danger" title="Xóa">-</button>
         </div>
 
         <div class="search-wrapper">
             <div class="search-input-box">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="Tìm kiếm chương, nội dung log...">
+                <input type="text" id="searchInput" placeholder="Tìm kiếm file, nhật ký...">
             </div>
         </div>
 
@@ -44,7 +45,7 @@
             </div>
         </div>
         
-        <div class="smart-toggle">
+        <div class="smart-toggle-wrapper">
              <label class="smart-toggle">
                 <input type="checkbox" id="autoGroup" checked>
                 <div class="toggle-track"><div class="toggle-thumb"></div></div>
@@ -63,24 +64,35 @@
                     <span class="label-text">Chọn tất cả (<span id="fileCount">0</span>)</span>
                 </label>
                 <div class="bar-right">
-                    <button id="btnDownloadDirect" class="action-pill">⬇ Tải Lẻ</button>
-                    <button id="btnDownloadBatch" class="action-pill primary">📦 Tải ZIP</button>
-                    <button id="btnDeleteBatch" class="action-pill danger">🗑 Xóa</button>
+                    <button id="btnDownloadDirect" class="action-pill">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Tải Lẻ
+                    </button>
+                    <button id="btnDownloadBatch" class="action-pill primary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Tải ZIP
+                    </button>
+                    <button id="btnDeleteBatch" class="action-pill danger">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Xóa
+                    </button>
                 </div>
             </div>
             <div id="fileGrid" class="grid-container"></div>
         </div>
 
         <div id="viewChecklist" class="view-panel">
-            <div class="panel-header">
-                <div class="progress-wrapper" style="flex: 1; margin-right: 15px;">
+            <div class="panel-header-flex">
+                <div class="progress-container-full">
                     <span class="prog-title">Tiến độ:</span>
                     <span id="progCount" class="prog-val">0/0</span>
-                    <div style="flex: 1; padding: 0 10px;">
+                    <div class="prog-bar-wrapper">
                         <div class="prog-track"><div id="progBar" class="prog-fill"></div></div>
                     </div>
                 </div>
-                <button id="btnClearChecklist" class="btn-rounded-danger">Xóa danh sách</button>
+                <button id="btnClearChecklist" class="btn-rounded-danger">
+                    🗑 Xóa danh sách
+                </button>
             </div>
             
             <div class="table-container">
@@ -94,13 +106,15 @@
         </div>
 
         <div id="viewHistory" class="view-panel">
-            <div class="panel-header">
+            <div class="panel-header-flex">
                 <div class="filter-group">
                     <button class="filter-btn active" data-filter="all">Tất cả</button>
                     <button class="filter-btn" data-filter="scan">Quét trùng</button>
                     <button class="filter-btn" data-filter="merge">Quét nội dung</button>
                 </div>
-                <button id="btnClearHistory" class="btn-rounded-danger">Xóa lịch sử</button>
+                <button id="btnClearHistory" class="btn-rounded-danger">
+                    🗑 Xóa lịch sử
+                </button>
             </div>
 
             <div class="table-container">
