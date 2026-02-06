@@ -6,26 +6,25 @@ const CHANNEL_NAME = 'writer_core_v26';
 let db = null;
 let files = [];
 let folders = [];
-let logs = []; // Sử dụng mảng logs chung thay vì historyLogs
+let logs = []; 
 let checklists = {}; 
 let currentFolderId = 'root';
 let currentView = 'manager';
 let previewFileId = null;
-let currentFilter = 'all'; // Biến theo dõi bộ lọc hiện tại
+let currentFilter = 'all'; 
 
 // QUEUE SYSTEM
 let mergeQueue = []; 
 let isProcessingQueue = false;
 
-// BROADCAST CHANNEL (Cầu nối nhận tin)
+// BROADCAST CHANNEL
 const commChannel = new BroadcastChannel(CHANNEL_NAME);
 
 // --- DOM ELEMENTS ---
-// (Đã map lại chính xác theo HTML V26)
 const els = {
     folderSelect: document.getElementById('folderSelect'),
     btnNewFolder: document.getElementById('btnNewFolder'),
-    btnRenameFolder: document.getElementById('btnRenameFolder'), // Mới
+    btnRenameFolder: document.getElementById('btnRenameFolder'),
     btnDeleteFolder: document.getElementById('btnDeleteFolder'),
     searchInput: document.getElementById('searchInput'),
     
@@ -53,9 +52,9 @@ const els = {
     progCount: document.getElementById('progCount'),
     progBar: document.getElementById('progBar'),
     
-    // History & Filter (SỬA LỖI Ở ĐÂY)
+    // History & Filter
     historyTableBody: document.getElementById('historyTableBody'),
-    historyFilters: document.querySelectorAll('.filter-btn'), // Lấy danh sách nút thay vì select
+    historyFilters: document.querySelectorAll('.filter-btn'),
     btnClearHistory: document.getElementById('btnClearHistory'),
 
     // Hidden & Modal
@@ -66,7 +65,7 @@ const els = {
     previewBody: document.getElementById('previewBody'),
     toast: document.getElementById('toast'),
     
-    // Fake elements for logic compatibility
+    // Fake elements logic
     editor: { value: '' }, 
     chapterTitle: { value: '' }
 };
@@ -76,12 +75,10 @@ function countWords(text) {
     if (!text || !text.trim()) return 0; 
     return text.trim().split(/\s+/).length; 
 }
-// 1.5 -> 1.5
 function getChapterNum(title) { 
     const match = title.match(/(?:Chương|Chapter|Hồi)\s*(\d+(\.\d+)?)/i); 
     return match ? parseFloat(match[1]) : 999999; 
 }
-// 1.5 -> 1
 function getGroupNum(title) {
     const match = title.match(/(?:Chương|Chapter|Hồi)\s*(\d+)/i);
     return match ? parseInt(match[1], 10) : null;
@@ -94,19 +91,13 @@ function cleanContent(text) {
 async function init() {
     await initDB();
     setupEvents();
-    
-    // Reset trạng thái bận
     localStorage.setItem('is_merging_busy', 'false');
     
-    // LẮNG NGHE TÍN HIỆU TỪ TAMPERMONKEY
+    // LẮNG NGHE TÍN HIỆU
     commChannel.onmessage = (event) => {
         const data = event.data;
         if (!data) return;
-
-        console.log("Web App received:", data); // Debug log
-
         if (data.type === 'MERGE') {
-            // Đẩy vào hàng đợi xử lý
             mergeQueue.push({
                 title: data.payload.title,
                 content: data.payload.content,
@@ -114,60 +105,49 @@ async function init() {
             });
             processQueue();
         }
-        
         if (data.type === 'CHECKLIST') {
             importChecklist(data.payload);
         }
     };
 
-    // Backup check (nếu tab bị ẩn)
     window.addEventListener('visibilitychange', () => {
         if (!document.hidden && mergeQueue.length > 0) processQueue();
     });
 }
 
 function setupEvents() {
-    // Folder Ops
     els.btnNewFolder.onclick = createFolder;
     els.btnDeleteFolder.onclick = deleteCurrentFolder;
     if(els.btnRenameFolder) els.btnRenameFolder.onclick = renameFolder;
     
     els.folderSelect.onchange = (e) => { currentFolderId = e.target.value; switchView(currentView); };
     
-    // Navigation
     els.btnViewFiles.onclick = () => switchView('manager');
     els.btnViewHistory.onclick = () => switchView('history');
     els.btnViewChecklist.onclick = () => switchView('checklist');
     
-    // Search
     els.searchInput.oninput = () => { 
         if (currentView === 'manager') renderFiles();
         if (currentView === 'history') renderHistory();
     };
 
-    // Cleaners
     els.btnClearChecklist.onclick = clearChecklist;
     els.btnClearHistory.onclick = clearHistory;
 
-    // Batch Ops
     els.selectAll.onchange = (e) => { getFilteredFiles().forEach(f => f.selected = e.target.checked); renderFiles(); };
     els.btnDownloadBatch.onclick = downloadBatchZip;
     els.btnDownloadDirect.onclick = downloadBatchDirect;
     els.btnDeleteBatch.onclick = deleteBatch;
 
-    // FIX LỖI 1: Setup Filter Buttons (Thay vì select box cũ)
     els.historyFilters.forEach(btn => {
         btn.onclick = () => {
-            // UI Update
             els.historyFilters.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            // Logic Update
-            currentFilter = btn.dataset.filter; // 'all', 'scan', 'merge'
+            currentFilter = btn.dataset.filter;
             renderHistory();
         };
     });
 
-    // Preview Keys
     document.addEventListener('keydown', e => {
         if(els.previewModal.classList.contains('show')) {
             if(e.key === 'ArrowLeft') prevChapter();
@@ -192,7 +172,7 @@ async function processQueue() {
         const task = mergeQueue.shift();
         await performMerge(task);
     } catch (e) {
-        console.error("Lỗi xử lý:", e);
+        console.error("Lỗi:", e);
         addLog('warn', `Lỗi xử lý: ${e.message}`);
     } finally {
         isProcessingQueue = false;
@@ -200,7 +180,7 @@ async function processQueue() {
     }
 }
 
-// --- CORE MERGE LOGIC (SMART 1.x -> 1) ---
+// --- MERGE LOGIC ---
 async function performMerge(task) {
     const { title: inputTitle, content, autoGroup } = task;
     if (!content || !content.trim()) return;
@@ -209,16 +189,11 @@ async function performMerge(task) {
     let fileName = `${safeName}.docx`; 
     
     const lines = cleanContent(content);
-    const chapterNum = getChapterNum(inputTitle); // 1.1
-    const groupNum = getGroupNum(inputTitle);     // 1
+    const chapterNum = getChapterNum(inputTitle);
+    const groupNum = getGroupNum(inputTitle);
     
-    let segment = { 
-        idSort: chapterNum, 
-        lines: lines, 
-        header: inputTitle 
-    };
+    let segment = { idSort: chapterNum, lines: lines, header: inputTitle };
 
-    // Logic đặt tên file gộp
     if (autoGroup && groupNum !== null) {
         fileName = `Chương ${groupNum}.docx`;
     }
@@ -228,7 +203,6 @@ async function performMerge(task) {
 
     if (targetFile) {
         if (!targetFile.segments) targetFile.segments = [];
-        
         const existingIndex = targetFile.segments.findIndex(s => s.idSort === chapterNum);
         
         if (existingIndex !== -1) {
@@ -239,24 +213,18 @@ async function performMerge(task) {
             logMsg = `Gộp thêm: ${inputTitle} vào ${fileName}`;
         }
 
-        // SẮP XẾP LẠI (1.1 trước 1.2)
         targetFile.segments.sort((a,b) => a.idSort - b.idSort);
         
-        // Rebuild Text để đếm từ
         let allText = "";
         targetFile.segments.forEach(seg => { allText += seg.lines.join(' ') + ' '; });
 
         targetFile.headerInDoc = fileName.replace('.docx', '');
         targetFile.wordCount = countWords(allText);
         targetFile.timestamp = Date.now();
-        
         targetFile.blob = await generateDocxFromSegments(targetFile.headerInDoc, targetFile.segments);
         saveDB('files', targetFile);
-        
     } else {
-        // TẠO FILE MỚI
         const wc = countWords(content);
-        
         targetFile = {
             id: Date.now(), 
             name: fileName, 
@@ -267,11 +235,9 @@ async function performMerge(task) {
             timestamp: Date.now(), 
             selected: false
         };
-
         targetFile.blob = await generateDocxFromSegments(targetFile.headerInDoc, targetFile.segments);
         files.push(targetFile);
         saveDB('files', targetFile);
-        
         logMsg = `Tạo mới: ${fileName}`;
     }
 
@@ -296,8 +262,6 @@ function importChecklist(items) {
         const uniqueDupes = [...new Set(duplicates)].sort((a,b)=>a-b);
         addLog('scan_dupe', `Trùng chương: ${uniqueDupes.join(', ')}`);
         toast(`⚠️ Có ${uniqueDupes.length} chương trùng!`);
-        
-        // Auto switch to History & Scan Tab
         switchView('history'); 
         currentFilter = 'scan';
         updateFilterUI();
@@ -342,7 +306,6 @@ function renderChecklist() {
             const div = document.createElement('div');
             div.className = `checklist-item ${isDone ? 'done' : ''}`;
             
-            // HTML Status
             let statusHtml = isDone 
                 ? `<span class="status-badge done">✔ Đã xong</span>`
                 : `<span class="status-badge pending"><span class="spinner"></span> Chờ</span>`;
@@ -362,22 +325,44 @@ function renderChecklist() {
     els.progBar.style.width = `${percent}%`;
 }
 
-// --- HISTORY SYSTEM (FIX LỖI 2) ---
-function addLog(type, msg) {
-    const now = new Date();
-    const time = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    const item = { id: Date.now(), time, type, msg, timestamp: now.getTime() };
-    logs.unshift(item);
-    if(logs.length > 300) logs.pop();
-    saveDB('history', item);
-    
-    if(currentView === 'history') renderHistory();
+// --- RENDERERS (PHẦN BỊ THIẾU TRƯỚC ĐÓ) ---
+function renderFolders() { 
+    els.folderSelect.innerHTML = ''; 
+    folders.forEach(f => { 
+        const o = document.createElement('option'); 
+        o.value = f.id; 
+        o.innerText = f.name; 
+        if(f.id===currentFolderId) o.selected=true; 
+        els.folderSelect.appendChild(o); 
+    }); 
+}
+
+function renderFiles() { 
+    const list = getFilteredFiles(); 
+    els.fileCount.innerText = list.length; 
+    els.fileGrid.innerHTML = ''; 
+    list.forEach(f => { 
+        const card = document.createElement('div'); 
+        card.className = `file-card ${f.selected ? 'selected' : ''}`; 
+        card.onclick = (e) => { 
+            if(e.target.closest('.action-pill')) return; 
+            f.selected = !f.selected; 
+            renderFiles(); 
+        }; 
+        card.innerHTML = `
+            <div class="card-icon">📄</div>
+            <div class="file-name">${f.name}</div>
+            <div class="file-meta">${f.wordCount} từ</div>
+            <div style="margin-top:auto;display:flex;gap:5px">
+                <button class="action-pill" onclick="openPreview(${f.id})">Xem</button>
+                <button class="action-pill danger" onclick="deleteOne(${f.id})">Xóa</button>
+            </div>`; 
+        els.fileGrid.appendChild(card); 
+    }); 
 }
 
 function renderHistory() {
     let filtered = logs;
-    
-    // FIX LOGIC FILTER: Dùng biến currentFilter thay vì đọc value của nút
     if (currentFilter === 'scan') filtered = logs.filter(l => l.type.startsWith('scan'));
     else if (currentFilter === 'merge') filtered = logs.filter(l => l.type === 'merge');
     
@@ -394,7 +379,6 @@ function renderHistory() {
     filtered.forEach(log => {
         const tr = document.createElement('div');
         tr.className = 'table-row';
-        
         let badgeClass = 'info';
         let badgeText = 'Gộp';
         if(log.type === 'scan_dupe') { badgeClass = 'error'; badgeText = 'Trùng'; }
@@ -411,23 +395,29 @@ function renderHistory() {
     els.historyTableBody.appendChild(frag);
 }
 
+// --- HISTORY & GENERATOR ---
+function addLog(type, msg) {
+    const now = new Date();
+    const time = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const item = { id: Date.now(), time, type, msg, timestamp: now.getTime() };
+    logs.unshift(item);
+    if(logs.length > 300) logs.pop();
+    saveDB('history', item);
+    if(currentView === 'history') renderHistory();
+}
 function updateFilterUI() {
     els.historyFilters.forEach(b => {
         b.classList.toggle('active', b.dataset.filter === currentFilter);
     });
 }
-
-// --- GENERATOR DOCX (Calibri 32 = 16pt) ---
 function generateDocxFromSegments(mainHeader, segments) { 
     const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx; 
     const children = []; 
-    
     children.push(new Paragraph({
         children: [new TextRun({text: mainHeader, font: "Calibri", size: 48, bold: true})], 
         alignment: AlignmentType.CENTER,
         spacing: {after: 400}
     })); 
-    
     segments.forEach(seg => { 
         if (seg.header !== mainHeader) {
              children.push(new Paragraph({
@@ -435,50 +425,36 @@ function generateDocxFromSegments(mainHeader, segments) {
                 spacing: {before: 300, after: 200}
             }));
         }
-
         seg.lines.forEach(line => { 
             children.push(new Paragraph({
-                children: [new TextRun({
-                    text: line, 
-                    font: "Calibri", 
-                    size: 32 // 16pt
-                })], 
+                children: [new TextRun({text: line, font: "Calibri", size: 32})], 
                 spacing: {after: 240},
                 alignment: AlignmentType.JUSTIFIED
             })); 
         }); 
-        
         children.push(new Paragraph({text: "", spacing: {after: 200}}));
     }); 
-    
     return Packer.toBlob(new Document({sections:[{children}]})); 
 }
 
 // --- FOLDER & DB ---
 function initDB() { return new Promise(r => { const req = indexedDB.open(DB_NAME, DB_VERSION); req.onupgradeneeded = e => { const d = e.target.result; if(!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath: 'id'}); if(!d.objectStoreNames.contains('folders')) d.createObjectStore('folders', {keyPath: 'id'}); if(!d.objectStoreNames.contains('history')) d.createObjectStore('history', {keyPath: 'id'}); if(!d.objectStoreNames.contains('checklists')) d.createObjectStore('checklists', {keyPath: 'folderId'}); }; req.onsuccess = e => { db = e.target.result; loadData().then(r); }; }); }
-
 async function loadData() { 
     files = await getAll('files'); 
     folders = await getAll('folders'); 
     logs = (await getAll('history')).sort((a,b)=>b.timestamp-a.timestamp); 
     const c = await getAll('checklists'); 
     c.forEach(i => checklists[i.folderId] = i.list); 
-    
     if(folders.length === 0) { 
         folders.push({id:'root', name:'Thư mục chính'}); 
         saveDB('folders', {id:'root', name:'Thư mục chính'}); 
     }
     if(!folders.find(f=>f.id===currentFolderId)) currentFolderId = folders[0].id;
-    
     renderFolders(); renderFiles(); renderHistory(); 
 }
-
 function createFolder() { const n = prompt("Tên folder:"); if(n) { const f={id:Date.now().toString(), name:n}; folders.push(f); saveDB('folders', f); currentFolderId=f.id; renderFolders(); renderFiles(); } }
 function renameFolder() { const c = folders.find(f=>f.id===currentFolderId); if(!c) return; const n = prompt("Đổi tên:", c.name); if(n){ c.name=n.trim(); saveDB('folders', c); renderFolders(); toast("Đã đổi tên"); } }
 function deleteCurrentFolder() { if(confirm("Xóa folder này?")) { files.filter(f=>f.folderId===currentFolderId).forEach(f=>delDB('files',f.id)); delDB('folders', currentFolderId); files=files.filter(f=>f.folderId!==currentFolderId); folders=folders.filter(f=>f.id!==currentFolderId); if(folders.length===0){folders.push({id:'root',name:'Thư mục chính'});saveDB('folders',{id:'root',name:'Thư mục chính'});} currentFolderId=folders[0].id; renderFolders(); renderFiles(); switchView(currentView); toast("Đã xóa"); } }
-
-function clearChecklist() { if(confirm("Xóa danh sách?")) { delete checklists[currentFolderId]; delDB('checklists', currentFolderId); renderChecklist(); toast("Đã xóa"); } }
-function clearHistory() { if(confirm("Xóa nhật ký?")) { logs=[]; clearStore('history'); renderHistory(); toast("Đã dọn dẹp"); } }
 
 // --- VIEWS & ACTIONS ---
 function switchView(v) { 
@@ -494,7 +470,10 @@ function switchView(v) {
     if(v==='checklist') renderChecklist(); 
 }
 
-// --- UTILS (Short) ---
+function clearChecklist() { if(confirm("Xóa danh sách?")) { delete checklists[currentFolderId]; delDB('checklists', currentFolderId); renderChecklist(); toast("Đã xóa"); } }
+function clearHistory() { if(confirm("Xóa nhật ký?")) { logs=[]; clearStore('history'); renderHistory(); toast("Đã dọn dẹp"); } }
+
+// --- UTILS ---
 function getAll(s) { return new Promise(r => db.transaction(s,'readonly').objectStore(s).getAll().onsuccess=e=>r(e.target.result||[])); }
 function saveDB(s, i) { db.transaction(s,'readwrite').objectStore(s).put(i); }
 function delDB(s, id) { db.transaction(s,'readwrite').objectStore(s).delete(id); }
