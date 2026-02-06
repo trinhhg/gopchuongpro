@@ -65,7 +65,7 @@ const els = {
     previewBody: document.getElementById('previewBody'),
     toast: document.getElementById('toast'),
     
-    // Fake elements logic
+    // Fake elements
     editor: { value: '' }, 
     chapterTitle: { value: '' }
 };
@@ -87,7 +87,7 @@ function cleanContent(text) {
     return text.split('\n').map(l => l.trim()).filter(l => l.length > 0); 
 }
 
-// --- INIT ---
+// --- INIT & SETUP ---
 async function init() {
     await initDB();
     setupEvents();
@@ -215,12 +215,14 @@ async function performMerge(task) {
 
         targetFile.segments.sort((a,b) => a.idSort - b.idSort);
         
+        // Rebuild Text
         let allText = "";
         targetFile.segments.forEach(seg => { allText += seg.lines.join(' ') + ' '; });
 
         targetFile.headerInDoc = fileName.replace('.docx', '');
         targetFile.wordCount = countWords(allText);
         targetFile.timestamp = Date.now();
+        
         targetFile.blob = await generateDocxFromSegments(targetFile.headerInDoc, targetFile.segments);
         saveDB('files', targetFile);
     } else {
@@ -319,13 +321,87 @@ function renderChecklist() {
         });
         els.checklistBody.appendChild(frag);
     }
-    
     els.progCount.innerText = `${doneCount}/${list.length}`;
     const percent = list.length > 0 ? (doneCount / list.length) * 100 : 0;
     els.progBar.style.width = `${percent}%`;
 }
 
-// --- RENDERERS (PHẦN BỊ THIẾU TRƯỚC ĐÓ) ---
+// --- GENERATOR DOCX (CLEAN MERGE) ---
+function generateDocxFromSegments(mainHeader, segments) { 
+    const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx; 
+    const children = []; 
+    
+    // 1. Tiêu đề Chính (Chương X) - Căn trái, Size 16pt (32), Bold
+    children.push(new Paragraph({
+        children: [new TextRun({
+            text: mainHeader, 
+            font: "Calibri", 
+            size: 32, 
+            bold: fasle,
+            color: "000000"
+        })], 
+        alignment: AlignmentType.LEFT, // Căn trái theo yêu cầu
+        spacing: {after: 400} // Cách một đoạn
+    })); 
+    
+    segments.forEach(seg => { 
+        // 2. KHÔNG chèn tiêu đề con (Chương X.X) nữa
+        // Chỉ chèn nội dung
+        seg.lines.forEach(line => { 
+            children.push(new Paragraph({
+                children: [new TextRun({
+                    text: line, 
+                    font: "Calibri", 
+                    size: 32, // Size 16pt
+                    color: "000000"
+                })], 
+                spacing: {after: 240},
+                alignment: AlignmentType.JUSTIFIED
+            })); 
+        }); 
+        // Ngắt dòng giữa các phần
+        children.push(new Paragraph({text: "", spacing: {after: 200}}));
+    }); 
+    
+    return Packer.toBlob(new Document({sections:[{children}]})); 
+}
+
+// --- PREVIEW SYSTEM (CLEAN) ---
+window.openPreview = (id) => { 
+    const f=files.find(x=>x.id===id); if(!f) return; previewFileId=id; 
+    const list = getFilteredFiles(); const idx = list.findIndex(x=>x.id===id);
+    
+    // Header
+    els.previewTitle.innerText=f.name; 
+    els.previewDocHeader.innerText=f.headerInDoc; 
+    // Format Header Preview: Căn trái, Bold, Size to
+    els.previewDocHeader.style.textAlign = 'left';
+    els.previewDocHeader.style.fontFamily = 'Calibri';
+    els.previewDocHeader.style.fontSize = '24px';
+    els.previewDocHeader.style.fontWeight = 'bold';
+
+    let content = ""; 
+    if(f.segments) {
+        f.segments.forEach(s => { 
+            // KHÔNG in tiêu đề con s.header
+            s.lines.forEach(l => {
+                content += `<p style="font-family:Calibri; font-size:16pt; margin-bottom:12px; text-align:justify; line-height:1.5">${l}</p>`;
+            }); 
+            // Dòng kẻ mờ để biết hết 1 phần (chỉ hiện ở preview, không có trong file tải)
+            content += "<div style='height:20px'></div>"; 
+        }); 
+    } else {
+        content = f.rawContent.split('\n').map(l=>`<p>${l}</p>`).join(''); 
+    }
+    
+    els.previewBody.innerHTML=content; 
+    els.previewModal.classList.add('show'); 
+};
+window.closePreview = () => els.previewModal.classList.remove('show');
+window.prevChapter = () => { const l=getFilteredFiles(); const i=l.findIndex(x=>x.id===previewFileId); if(i>0) openPreview(l[i-1].id); else toast("Đầu danh sách"); };
+window.nextChapter = () => { const l=getFilteredFiles(); const i=l.findIndex(x=>x.id===previewFileId); if(i!==-1 && i<l.length-1) openPreview(l[i+1].id); else toast("Hết danh sách"); };
+
+// --- RENDERERS ---
 function renderFolders() { 
     els.folderSelect.innerHTML = ''; 
     folders.forEach(f => { 
@@ -395,7 +471,7 @@ function renderHistory() {
     els.historyTableBody.appendChild(frag);
 }
 
-// --- HISTORY & GENERATOR ---
+// --- HISTORY & UTILS ---
 function addLog(type, msg) {
     const now = new Date();
     const time = now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
@@ -410,32 +486,12 @@ function updateFilterUI() {
         b.classList.toggle('active', b.dataset.filter === currentFilter);
     });
 }
-function generateDocxFromSegments(mainHeader, segments) { 
-    const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx; 
-    const children = []; 
-    children.push(new Paragraph({
-        children: [new TextRun({text: mainHeader, font: "Calibri", size: 48, bold: true})], 
-        alignment: AlignmentType.CENTER,
-        spacing: {after: 400}
-    })); 
-    segments.forEach(seg => { 
-        if (seg.header !== mainHeader) {
-             children.push(new Paragraph({
-                children: [new TextRun({text: seg.header, font: "Calibri", size: 36, bold: true, color: "2E74B5"})],
-                spacing: {before: 300, after: 200}
-            }));
-        }
-        seg.lines.forEach(line => { 
-            children.push(new Paragraph({
-                children: [new TextRun({text: line, font: "Calibri", size: 32})], 
-                spacing: {after: 240},
-                alignment: AlignmentType.JUSTIFIED
-            })); 
-        }); 
-        children.push(new Paragraph({text: "", spacing: {after: 200}}));
-    }); 
-    return Packer.toBlob(new Document({sections:[{children}]})); 
-}
+function getAll(s) { return new Promise(r => db.transaction(s,'readonly').objectStore(s).getAll().onsuccess=e=>r(e.target.result||[])); }
+function saveDB(s, i) { db.transaction(s,'readwrite').objectStore(s).put(i); }
+function delDB(s, id) { db.transaction(s,'readwrite').objectStore(s).delete(id); }
+function clearStore(s) { db.transaction(s, 'readwrite').objectStore(s).clear(); }
+function toast(m) { els.toast.innerText = m; els.toast.classList.add('show'); setTimeout(()=>els.toast.classList.remove('show'), 2000); }
+function getFilteredFiles() { let l = files.filter(f=>f.folderId===currentFolderId); if(currentView==='manager'){ const k=els.searchInput.value.toLowerCase(); if(k) l=l.filter(f=>f.name.toLowerCase().includes(k)); } return l.sort((a,b)=>getChapterNum(a.name)-getChapterNum(b.name)); }
 
 // --- FOLDER & DB ---
 function initDB() { return new Promise(r => { const req = indexedDB.open(DB_NAME, DB_VERSION); req.onupgradeneeded = e => { const d = e.target.result; if(!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath: 'id'}); if(!d.objectStoreNames.contains('folders')) d.createObjectStore('folders', {keyPath: 'id'}); if(!d.objectStoreNames.contains('history')) d.createObjectStore('history', {keyPath: 'id'}); if(!d.objectStoreNames.contains('checklists')) d.createObjectStore('checklists', {keyPath: 'folderId'}); }; req.onsuccess = e => { db = e.target.result; loadData().then(r); }; }); }
@@ -469,31 +525,8 @@ function switchView(v) {
     if(v==='history') renderHistory(); 
     if(v==='checklist') renderChecklist(); 
 }
-
 function clearChecklist() { if(confirm("Xóa danh sách?")) { delete checklists[currentFolderId]; delDB('checklists', currentFolderId); renderChecklist(); toast("Đã xóa"); } }
 function clearHistory() { if(confirm("Xóa nhật ký?")) { logs=[]; clearStore('history'); renderHistory(); toast("Đã dọn dẹp"); } }
-
-// --- UTILS ---
-function getAll(s) { return new Promise(r => db.transaction(s,'readonly').objectStore(s).getAll().onsuccess=e=>r(e.target.result||[])); }
-function saveDB(s, i) { db.transaction(s,'readwrite').objectStore(s).put(i); }
-function delDB(s, id) { db.transaction(s,'readwrite').objectStore(s).delete(id); }
-function clearStore(s) { db.transaction(s, 'readwrite').objectStore(s).clear(); }
-function toast(m) { els.toast.innerText = m; els.toast.classList.add('show'); setTimeout(()=>els.toast.classList.remove('show'), 2000); }
-function getFilteredFiles() { let l = files.filter(f=>f.folderId===currentFolderId); if(currentView==='manager'){ const k=els.searchInput.value.toLowerCase(); if(k) l=l.filter(f=>f.name.toLowerCase().includes(k)); } return l.sort((a,b)=>getChapterNum(a.name)-getChapterNum(b.name)); }
-
-// PREVIEW & OPS
-window.openPreview = (id) => { 
-    const f=files.find(x=>x.id===id); if(!f) return; previewFileId=id; 
-    const list = getFilteredFiles(); const idx = list.findIndex(x=>x.id===id);
-    els.previewTitle.innerText=f.name; els.previewDocHeader.innerText=f.headerInDoc; 
-    let c=""; 
-    if(f.segments) f.segments.forEach(s=>{ if(s.header!==f.headerInDoc) c+=`<h3 style="color:#2b6cb0;margin-top:20px;font-family:Calibri">${s.header}</h3>`; s.lines.forEach(l=>c+=`<p style="font-family:Calibri;font-size:16pt;margin-bottom:10px;text-align:justify">${l}</p>`); c+="<hr style='border:0;border-top:1px dashed #ccc;margin:20px 0'>"; }); 
-    else c=f.rawContent.split('\n').map(l=>`<p>${l}</p>`).join(''); 
-    els.previewBody.innerHTML=c; els.previewModal.classList.add('show'); 
-};
-window.closePreview = () => els.previewModal.classList.remove('show');
-window.prevChapter = () => { const l=getFilteredFiles(); const i=l.findIndex(x=>x.id===previewFileId); if(i>0) openPreview(l[i-1].id); else toast("Đầu danh sách"); };
-window.nextChapter = () => { const l=getFilteredFiles(); const i=l.findIndex(x=>x.id===previewFileId); if(i!==-1 && i<l.length-1) openPreview(l[i+1].id); else toast("Hết danh sách"); };
 window.deleteOne = (id) => { if(confirm('Xóa file?')) { delDB('files', id); files=files.filter(f=>f.id!==id); renderFiles(); } };
 function deleteBatch() { const s=getFilteredFiles().filter(f=>f.selected); if(confirm(`Xóa ${s.length} file?`)) { s.forEach(f=>delDB('files',f.id)); files=files.filter(f=>!f.selected || f.folderId!==currentFolderId); renderFiles(); } }
 function downloadBatchZip() { const s=getFilteredFiles().filter(f=>f.selected); if(!s.length) return toast("Chưa chọn"); const z=new JSZip(); s.forEach(f=>z.file(f.name, f.blob)); z.generateAsync({type:"blob"}).then(c=>saveAs(c,`Batch_${Date.now()}.zip`)); }
