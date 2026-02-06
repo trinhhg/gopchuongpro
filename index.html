@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GopChuongPro V27</title>
+    <title>GopChuongPro V28</title>
     <link rel="stylesheet" href="index.css">
     <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <div class="engine-room">
-    <input type="text" id="chapterTitle" value="Chương 1">
+    <input type="text" id="chapterTitle">
     <textarea id="editor"></textarea>
     <button id="btnMerge">Gộp Ẩn</button>
     <textarea id="checklistInput"></textarea>
@@ -27,25 +26,18 @@
             <button id="btnNewFolder" class="btn-icon" title="Thêm thư mục">+</button>
             <button id="btnDeleteFolder" class="btn-icon danger" title="Xóa thư mục">-</button>
         </div>
-
         <div class="search-box">
-            <span class="search-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </span>
-            <input type="text" id="searchInput" placeholder="Tìm kiếm file...">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm file / lịch sử...">
         </div>
-
         <div class="nav-middle">
-            <button id="btnViewFiles" class="nav-pill active">📂 Files</button>
-            <button id="btnViewChecklist" class="nav-pill">📋 Danh sách</button>
-            <button id="btnViewHistory" class="nav-pill">🔔 Thông báo</button>
+            <button id="btnViewFiles" class="nav-pill active">Files</button>
+            <button id="btnViewChecklist" class="nav-pill">Danh sách</button>
+            <button id="btnViewHistory" class="nav-pill">Lịch sử</button>
         </div>
-
-        <div class="settings">
-            <label class="toggle-switch">
-                <input type="checkbox" id="autoGroup" checked>
-                <span class="slider"></span>
-                <span class="label">Gộp 1.x</span>
+        <div class="settings" style="margin-left:auto">
+            <label style="display:flex; gap:5px; font-size:13px; font-weight:600; color:#64748b; align-items:center;">
+                <input type="checkbox" id="autoGroup" checked> Tự động gộp nhóm
             </label>
         </div>
     </header>
@@ -53,12 +45,8 @@
     <main class="content-wrapper">
         <div id="viewManager" class="view-section active">
             <div class="toolbar">
-                <div class="left-tools">
-                    <label class="chk-all">
-                        <input type="checkbox" id="selectAll"> Chọn tất cả (<span id="fileCount">0</span> file)
-                    </label>
-                </div>
-                <div class="right-tools">
+                <label style="font-size:13px; font-weight:600"><input type="checkbox" id="selectAll"> Chọn tất cả (<span id="fileCount">0</span>)</label>
+                <div>
                     <button id="btnDownloadDirect" class="btn-tool secondary">⬇ Tải Lẻ</button>
                     <button id="btnDownloadBatch" class="btn-tool primary">📦 Tải ZIP</button>
                     <button id="btnDeleteBatch" class="btn-tool danger">🗑 Xóa</button>
@@ -69,40 +57,36 @@
 
         <div id="viewChecklist" class="view-section">
             <div class="checklist-toolbar">
-                <div class="progress-info">
-                    <span class="prog-label">Tiến độ:</span>
-                    <span id="progCount" class="prog-number">0/0</span>
-                    <div class="progress-bar-bg"><div id="progBar" class="progress-bar-fill"></div></div>
-                </div>
+                <span style="font-weight:700; font-size:13px;">Tiến độ:</span>
+                <span id="progCount" class="prog-number" style="margin-left:5px">0/0</span>
+                <div class="progress-bar-bg"><div id="progBar" class="progress-bar-fill"></div></div>
                 <button id="btnClearChecklist" class="btn-tool danger">Xóa danh sách</button>
             </div>
             <div class="checklist-container">
-                <div class="checklist-header-row">
-                    <div class="col-status">Trạng thái</div>
-                    <div class="col-title">Tên Chương (Từ Web Truyện)</div>
-                    <div class="col-num">Số</div>
+                <div class="checklist-header">
+                    <div style="width:120px">Trạng thái</div>
+                    <div style="flex:1">Tên chương</div>
+                    <div style="width:80px; text-align:right">Số</div>
                 </div>
-                <div id="checklistBody" class="checklist-body">
-                    <div class="empty-state">Chưa có dữ liệu. Hãy ấn F2 ở web truyện để quét.</div>
-                </div>
+                <div id="checklistBody" class="checklist-body"></div>
             </div>
         </div>
 
         <div id="viewHistory" class="view-section">
-            <div class="history-toolbar">
-                <div class="history-left">
-                    <h3>Nhật ký & Check Trùng</h3>
-                    <select id="historyFilter" class="filter-select">
+            <div class="checklist-toolbar">
+                <div class="history-left" style="display:flex; align-items:center; gap:10px;">
+                    <h3 style="font-size:16px; margin:0">Nhật ký</h3>
+                    <select id="historyFilter" style="padding:5px; border-radius:4px; border:1px solid #e2e8f0">
                         <option value="all">Tất cả</option>
-                        <option value="error">❌ Lỗi / Trùng</option>
-                        <option value="success">✅ Thành công</option>
+                        <option value="error">Lỗi</option>
+                        <option value="success">Thành công</option>
                     </select>
                 </div>
-                <button id="btnClearHistory" class="btn-tool danger">Xóa</button>
+                <button id="btnClearHistory" class="btn-tool danger">Xóa lịch sử</button>
             </div>
             <div class="history-table-wrapper">
                 <table class="history-table">
-                    <thead><tr><th style="width: 100px;">Giờ</th><th style="width: 120px;">Loại</th><th>Chi tiết</th></tr></thead>
+                    <thead><tr><th style="width:100px">Giờ</th><th style="width:100px">Loại</th><th>Nội dung</th></tr></thead>
                     <tbody id="historyTableBody"></tbody>
                 </table>
             </div>
@@ -113,18 +97,17 @@
 <div id="previewModal" class="modal-overlay">
     <div class="modal-window">
         <div class="modal-header">
-            <h3 id="previewTitle">Xem trước</h3>
-            <div class="modal-nav">
-                <button onclick="prevChapter()" class="nav-btn">❮</button>
-                <span id="previewCounter">--/--</span>
-                <button onclick="nextChapter()" class="nav-btn">❯</button>
+            <h3 id="previewTitle">Preview</h3>
+            <div>
+                <button onclick="prevChapter()" style="padding:5px 10px; cursor:pointer">❮</button>
+                <button onclick="nextChapter()" style="padding:5px 10px; cursor:pointer">❯</button>
+                <button onclick="closePreview()" style="margin-left:10px; padding:5px 10px; cursor:pointer">✕</button>
             </div>
-            <button onclick="closePreview()" class="btn-close">✕</button>
         </div>
         <div class="modal-body">
             <div class="paper">
-                <h1 id="previewDocHeader">Header</h1>
-                <div id="previewBody">Content...</div>
+                <h1 id="previewDocHeader" style="margin-bottom:20px"></h1>
+                <div id="previewBody"></div>
             </div>
         </div>
     </div>
